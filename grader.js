@@ -24,6 +24,8 @@ References:
 var fs = require('fs');
 var program = require('commander');
 var cheerio = require('cheerio');
+var util = require('util');
+var rest = require('restler');
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
 
@@ -36,8 +38,17 @@ var assertFileExists = function(infile) {
     return instr;
 };
 
+var assertUrl = function(inurl) {
+   var instr = inurl.toString();
+   return instr;
+};
+
 var cheerioHtmlFile = function(htmlfile) {
     return cheerio.load(fs.readFileSync(htmlfile));
+};
+
+var cheerioHtmlUrl = function(htmlUrl) {
+    return cheerio.load(htmlUrl);
 };
 
 var loadChecks = function(checksfile) {
@@ -55,20 +66,63 @@ var checkHtmlFile = function(htmlfile, checksfile) {
     return out;
 };
 
+
+var getHtml = function(htmlUrl) {
+   var data2 = "empty";
+   console.log("getting data");
+   rest.get(htmlUrl).on('complete', function(data) {
+        console.log(data);
+  
+      data2 = data;
+   });
+
+console.log(data2);
+   return data2;
+};
+
+
+
+var checkHtmlUrl = function(htmlUrl, checksfile) {
+   rest.get(htmlUrl).on('complete', function(data) {
+      $ = cheerioHtmlUrl(data);	
+      var checks = loadChecks(checksfile).sort();
+      var out = {};
+      for(var ii in checks) {
+         var present = $(checks[ii]).length > 0;
+         out[checks[ii]] = present;
+      }
+      var outJson = JSON.stringify(out, null, 4);
+      console.log(outJson);
+   });
+};
+
 var clone = function(fn) {
     // Workaround for commander.js issue.
     // http://stackoverflow.com/a/6772648
     return fn.bind({});
 };
 
+
 if(require.main == module) {
+    var checkJson = "";
     program
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
+        .option('-u, --url <url>', 'url to check', clone(assertUrl), HTMLFILE_DEFAULT)
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+
+    if (program.url == HTMLFILE_DEFAULT)
+    {
+        checkJson = checkHtmlFile(program.file, program.checks);i
+        var outJson = JSON.stringify(checkJson, null, 4);
+        console.log(outJson);
+    }
+    else
+    {
+        console.log("url provided");
+
+	checkJson = checkHtmlUrl(program.url, program.checks);        
+    }
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
